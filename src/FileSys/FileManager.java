@@ -76,9 +76,12 @@ public class FileManager {
                 System.out.println("Could not find " + "'" + originalName + "'");
                 return;
             }
+            if (Objects.equals(descriptors[descriptorId].getFileType(), "directory")) {
+                System.out.println("File: '" + originalName + "' is a directory");
+                return;
+            }
             blockManager.addEntry(cwd, newName, descriptorId);
             descriptors[descriptorId].increaseLinksAmount();
-//            descriptors[descriptorId].setParent(cwd);
             System.out.println("'" + newName + "'" + " linked to " + "'" + originalName + "'");
         } catch (PathResolutionException e) {
             System.out.println(e.getMessage());
@@ -94,6 +97,10 @@ public class FileManager {
             int descriptorId = blockManager.findDescriptorId(parent, name);
             if (descriptorId == -1) {
                 System.out.println("Could not find " + "'" + name + "'");
+                return;
+            }
+            if (Objects.equals(descriptors[descriptorId].getFileType(), "directory")) {
+                System.out.println("File: '" + name + "' is a directory");
                 return;
             }
             Descriptor currentFileDescriptor = descriptors[descriptorId];
