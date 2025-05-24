@@ -1,6 +1,8 @@
 package FileSys;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class BlockManager {
     private final Block[] blocks = new Block[Settings.MAX_BLOCKS];
@@ -62,22 +64,31 @@ public class BlockManager {
         System.out.println("Wrote " + c + " zeroes");
     }
 
-    public void read(Descriptor descriptor, int size) {
+    public String read(Descriptor descriptor, int size, boolean logging) {
         int from = descriptor.getOffset();
         int to = from + size;
         if (to >= descriptor.getFileSize()) {
             to = descriptor.getFileSize();
         }
         List<Integer> blocksMap = descriptor.getBlockMap();
-        System.out.println("Reading bytes from " + from + " to " + to);
+
+        if (logging) {
+            System.out.println("Reading bytes from " + from + " to " + to);
+        }
+
+        StringBuilder buffer = new StringBuilder();
         for (int i = from; i < to; i++) {
             int blockIndex = i / Settings.BLOCK_SIZE;
             int offsetInBlock = i % Settings.BLOCK_SIZE;
             int blockId = blocksMap.get(blockIndex);
             Block block = blocks[blockId];
-            block.read(offsetInBlock);
+            buffer.append(block.read(offsetInBlock));
         }
-        System.out.println();
+        return buffer.toString();
+    }
+
+    public String read(Descriptor descriptor, int size) {
+        return read(descriptor, size, false);
     }
 
     public void write(Descriptor descriptor, String data) {
@@ -97,5 +108,68 @@ public class BlockManager {
             Block block = blocks[blockId];
             block.write(offsetInBlock, (byte) data.charAt(c++));
         }
+    }
+
+    public void addEntry(Descriptor descriptorCWD, String name, int descriptorId) {
+        String entry = name + "@" + descriptorId + "/";
+        write(descriptorCWD, entry);
+    }
+
+    public String readDirectory(Descriptor descriptorCWD) {
+        int offset = descriptorCWD.getOffset();
+        descriptorCWD.setOffset(0);
+        String contents = read(descriptorCWD, offset);
+        descriptorCWD.setOffset(offset);
+        return contents;
+    }
+
+    public List<String[]> getEntries(Descriptor descriptorCWD) {
+        String contents = readDirectory(descriptorCWD);
+        String[] entries = contents.split("/");
+        List<String[]> result = new ArrayList<>();
+        for (String entry : entries) {
+            result.add(entry.split("@"));
+        }
+        return result;
+    }
+
+    public int findDescriptorId(Descriptor descriptorCWD, String name) {
+        String contents = readDirectory(descriptorCWD);
+        String[] entries = contents.split("/");
+        for (String entry : entries) {
+            String[] buffer = entry.split("@");
+            if (buffer[0].equals(name)) {
+                return Integer.parseInt(buffer[1]);
+            }
+        }
+        return -1;
+    }
+
+    public void deleteEntry(Descriptor descriptorCWD, String name) {
+        String contents = readDirectory(descriptorCWD);
+        int descriptorId = findDescriptorId(descriptorCWD, name);
+        if (descriptorId == -1) {
+            System.out.println("File '" + name + "' not found");
+            return;
+        }
+        String entryToRemove = name + "@" + descriptorId + "/";
+        String updatedContents = contents.replace(entryToRemove, "");
+        descriptorCWD.setOffset(0);
+        write(descriptorCWD, updatedContents);
+    }
+
+    public String getDirName(Descriptor descriptorCWD) throws WrongTypeException, PathResolutionException {
+        if (!Objects.equals(descriptorCWD.getFileType(), "directory")) {
+            throw new WrongTypeException("Not a directory");
+        }
+        String contents = readDirectory(descriptorCWD.getParent());
+        String[] entries = contents.split("/");
+        for (String entry : entries) {
+            String[] buffer = entry.split("@");
+            if (Integer.parseInt(buffer[1]) == descriptorCWD.getId()) {
+                return buffer[0];
+            }
+        }
+        throw new PathResolutionException("Directory not found");
     }
 }

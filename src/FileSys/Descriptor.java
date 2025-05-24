@@ -4,19 +4,36 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Descriptor {
-    private boolean fileType;
+    private final int id;
+    private final int fileType;
     private int linkAm = 0;
     private int fileSize = 0;
     private int offset = 0;
+    private Descriptor parent;
     private List<Integer> blockMap = new ArrayList<>();
 
-    public Descriptor(boolean fileType) {
+    public Descriptor(int id, Descriptor parent, int fileType) {
+        this.id = id;
+        this.parent = parent;
         // false - file, true - directory
         this.fileType = fileType;
     }
 
+    public int getId() {
+        return id;
+    }
+
+    public Descriptor getParent() {
+        return parent;
+    }
+
     public String getFileType() {
-        return fileType ? "directory" : "file";
+        return switch (this.fileType) {
+            case 0 -> "file";
+            case 1 -> "directory";
+            case 2 -> "symLink";
+            default -> "";
+        };
     }
 
     public int getOffset() {
